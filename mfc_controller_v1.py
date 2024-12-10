@@ -107,8 +107,8 @@ def find_mfc_setpoints() -> tuple[list]:
         setp1 = df[setp1_name].iloc[indexes].values
         setp2 = df[setp2_name].iloc[indexes].values
     elif program == 'Nulstilling':
-        setp1 = 0
-        setp2 = 0
+        setp1 = [0]
+        setp2 = [0]
     elif program == 'Afslutning':
         sys.exit()
     #setv1 = df[setv1_name].iloc[indexes].values

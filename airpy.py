@@ -36,7 +36,6 @@ class BronkhorstMFC:
         """
 
         self.port = port
-        self.communication = None
         self.communication = pp.instrument(self.port)
         self.max_flow = float(self.communication.readParameter(21))
         self.readout_unit = self.communication.readParameter(129).strip()
