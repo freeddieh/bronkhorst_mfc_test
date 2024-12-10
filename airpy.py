@@ -14,6 +14,7 @@ from typing import Dict, Tuple, Any
 # {
 # 8: 'Measure',               # Measurement from 0-32000 (32000 = 100%)
 # 9: 'Setpoint',              # Setpoint from 0-32000 
+# 21: 'Max Output',           # Maximum output in capacity unit at 100%
 # 129: 'Capacity Unit',       # Readout unit of the MFC at capacity
 # 205: 'fMeasure',            # Actual flow in capacity unit
 # 206: 'fSetpoint',           # Set flow in capacity unit 
@@ -36,9 +37,10 @@ class BronkhorstMFC:
 
         self.port = port
         self.communication = None
-    
-    def initialize_communication(self) -> None:
         self.communication = pp.instrument(self.port)
+        self.max_flow = float(self.communication.readParameter(21))
+        self.readout_unit = self.communication.readParameter(129).strip()
+        self.data_unit = None
 
     def read_bronkhorst(self, dde_numbers: list[int]) -> dict:
         """
@@ -48,9 +50,12 @@ class BronkhorstMFC:
         :returns: Dictionary with read parameter values and the parameter number
         """
 
-        if self.communication is None:
-            self.initialize_communication()
-        parameters = {dde: self.communication.readParameter(dde) for dde in dde_numbers}
+        if type(dde_numbers) == int:
+            parameters = {dde_numbers: self.communication.readParameter(dde_numbers)}
+        elif type(dde_numbers) == list:
+            parameters = {dde: self.communication.readParameter(dde) for dde in dde_numbers}
+        else:
+            raise ValueError('Please input the dde numbers to be checked as integers or a list of intgers!')
         return parameters
     
     def write_bronkhorst(self, dde_number: int, value: Any) -> None:
@@ -60,9 +65,7 @@ class BronkhorstMFC:
         :param value: Value to write to the parameter number
         
         """
-        if self.communication is None:
-            self.initialize_communication()
-
+        
         self.communication.writeParameter(dde_number, value)
 
 class Arduino:
@@ -182,9 +185,8 @@ def find_bronkhorst_ports() -> dict:
     for port in mfc_ports:
         mfc = pp.instrument(port)
         if mfc.readParameter(8) is not None:
-            _ = mfc.master.get_nodes()[0]
-            flowrate = str(mfc.readParameter(253))[:3]
-            mfcs[f'{flowrate} {mfc.readParameter(129).strip()}'] = mfc
+            flowrate = str(mfc.readParameter(21))[:3]
+            mfcs[f'{flowrate} {mfc.readParameter(129).strip()}'] = port
             print(f'MFC with flowrate {flowrate} {mfc.readParameter(129).strip()} found at port {port}')
         else:
             print(f'MFC not found at port {port}')
