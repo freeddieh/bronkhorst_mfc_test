@@ -25,6 +25,18 @@ from serial.tools import list_ports
 
 
 def read_bh_flow(bh_mfc: BronkhorstMFC) -> float:
+    """
+    
+    Reads the setpoint of a Bronkhorst MFC
+    
+    :param bh_mfc: BronkhorstMFC object for the MFC to read the setpoint of
+    
+    :return: Float of the current flow in mLn/min
+    
+    """
+
+    # Find the capacity unit of the MFC to standardise output to mLn/min
+    # 205 is the DDE number of the actual flow of a Bronkhorst MFC
     if 'mln' in bh_mfc.readout_unit:
         bh_mfc.data_unit = 'mLn/min'
         return float(bh_mfc.read_bronkhorst(205)[205])
@@ -43,6 +55,12 @@ def data_logging(ser: serial.Serial,
     timestamp, and logs the data in 5 second intervals, and 
     stores the data in daily .csv files with customizable names
 
+    :param ser: Serial object for the port of the Arduino
+    :param headers: Header of the log to be made
+    :param log_name: Identification name of the log
+    :param bronkhorst_mfc: List of BronkhorstMFC objects to 
+                           read and include in the log
+    
     '''
     
     # Defines all constants for use in the loop
@@ -131,6 +149,14 @@ def data_logging(ser: serial.Serial,
 
 
 def error_log(error: str, log_name: str) -> None:
+    """
+    
+    Error log writer for data logging.
+
+    :param error: Error message for the specific error.
+    :param log_name: Name of the error log file
+    
+    """
     # Function for logging errors in the data when they occur
     error_log = open(log_name, 'a')
     error = f'{time.strftime("%Y-%m-%d %H:%M:%S")}, {error}'
@@ -142,6 +168,8 @@ def main_logger(bronkhorsts) -> None:
     '''
     
     Function for execution of the data logger.
+
+    :param bronkhorsts: List of Bronkhorst MFC objects to be controlled.
     
     '''
     measure_MFC = Arduino() 

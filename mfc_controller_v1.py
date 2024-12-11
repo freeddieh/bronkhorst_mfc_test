@@ -22,7 +22,15 @@ def before_after(timestamp) -> bool:
         return False
 
 
-def find_program_index(file: str, program: str) -> list[int]:
+def find_program_index(file: str, program: str) -> tuple[list]:
+    """
+    
+    Finds the indices for setpoints for MFCs in a given program
+
+    :param file: The file with the setpoints for the program
+    :param program: The program to find the setpoint indices for 
+    
+    """
     workbook = openpyxl.load_workbook(filename=file, data_only=True)
 
     # Select the leftmost sheet
@@ -57,13 +65,23 @@ def find_program_index(file: str, program: str) -> list[int]:
     return program_steps
 
 
-def find_mfc_setpoints() -> tuple[list]:
+def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
+    """
+    
+    Lets a user select an Excel sheet with instructions for a set of
+    calibration programs and lets the user select what specific program
+    to run.
+    
+    :return: A tuple of the chosen program and the setpoints for
+             the MFCs in that program
+    
+    """
+
     # Names of columns containing the setpoint values in %
     setp1_name = 'Fd %'
     setp2_name = 'Fso2'
 
     # Names of columns containing the setpoint values in ml/min 
-    
     #setv1_name = 'ml/min'
     #setv2_name = 'ml/min'    
     # As the column names are currently identical in the Excel sheet 
@@ -82,7 +100,7 @@ def find_mfc_setpoints() -> tuple[list]:
     root_prog = tk.Tk()
     root_prog.geometry('500x300')
     root_prog.wm_attributes('-topmost', 1)
-    root_prog.title('Blandingsprogram')
+    root_prog.title('Vælg Blandingsprogram')
 
     # Instantiate the DropdownApp class
     ddm = DropdownMenu(root_prog, options)
@@ -106,49 +124,62 @@ def find_mfc_setpoints() -> tuple[list]:
         indexes = find_program_index(ark, program)
         setp1 = df[setp1_name].iloc[indexes].values
         setp2 = df[setp2_name].iloc[indexes].values
+        #setv1 = df[setv1_name].iloc[indexes].values
+        #setv2 = df[setv2_name].iloc[indexes].values
     elif program == 'Nulstilling':
         setp1 = [0]
         setp2 = [0]
     elif program == 'Afslutning':
         sys.exit()
-    #setv1 = df[setv1_name].iloc[indexes].values
-    #setv2 = df[setv2_name].iloc[indexes].values
-    
 
-
-    return setp1, setp2 #, setv1, setv2
+    return program, setp1, setp2 #, setv1, setv2
 
 
 def pct_mln_conversion(mfc_max_flow: float, pct_flow: float) -> float:
     """
     
-    Converts a percentage flow from a MFC into a specific flow in mLn/min or Ln/min
+    Converts a percentage flow from a MFC into a specific flow in mLn/min or Ln/min.
+
+    :param mfc_max_flow: The maximum flow of a given MFC to convert output for.
+    :param pct_flow: The percentage setpoint for a MFC to be converted to an specific flow
+
+    :return: Specific flow for the MFC in appropriate unit.
     
     """
     return ((pct_flow / 100) * mfc_max_flow)
 
 
-def main_controller(bronkhorsts) -> None:
+def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) -> None:
     """
     
-    Defines the main function to controll the Bronkhorst MFC's using the worksheet
+    Defines the main function to controll the Bronkhorst MFC's using the worksheet.
+
+    :param bronkhorsts: List of Bronkhorst MFC objects to be controlled.
+    :param sleep_time: Time the program is supposed to sleep between dilution steps
+                       to achieve a stable concentration.
     
     """
-    
+    if len(bronkhorsts) < 1 or len(bronkhorsts) > 2:
+        raise KeyError('Uncompatible number of Bronkhorst MFCs connected. Program can only handle 2 MFCs (span + dilution).')
     bronkhorst_small = bronkhorsts[0]
     bronkhorst_large = bronkhorsts[1]
-    
-    for dilution, span in zip(*find_mfc_setpoints()):
+    program, set_pts = find_mfc_setpoints()
+
+    # 206 is the DDE number for setting the specific flow of a Bronkhorst MFC
+    for dilution, span in zip(*set_pts):
         dilution_flow = pct_mln_conversion(bronkhorst_large.max_flow, dilution)
         span_flow = pct_mln_conversion(bronkhorst_small.max_flow, span)
         bronkhorst_large.write_bronkhorst(206, dilution_flow)
         bronkhorst_small.write_bronkhorst(206, span_flow)
-        time.sleep(60)
-        
+        if program in ['Nulstilling', 'Afslutning']:
+            time.sleep(0)
+        else:
+            time.sleep(sleep_time)
+    
     bronkhorst_large.write_bronkhorst(206, 0)
     bronkhorst_small.write_bronkhorst(206, 0)
     print('Det valgte program er nu fuldendt.')
 
 
 if __name__ == '__main__':
-    main_controller()
+    main_controller([12, 2])

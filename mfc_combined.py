@@ -9,7 +9,12 @@ from airpy import BronkhorstMFC, find_bronkhorst_ports
 
 
 def main_logger_event(event, bronkhorsts):
-    """Main logger function that will wait for the event and log data."""
+    """
+    
+    Main logger function that will wait for the event and log data.
+
+
+    """
     while True:
         if event.is_set():  # If the event is set, proceed with logging
             main_logger(bronkhorsts)  # Call the main_logger function
@@ -17,7 +22,11 @@ def main_logger_event(event, bronkhorsts):
         time.sleep(1)  # Sleep for 1 second before checking again (to avoid busy waiting)
 
 def main_controller_event(event, bronkhorsts):
-    """Main controller function that sends commands and has priority."""
+    """
+    
+    Main controller function that sends commands and has priority.
+    
+    """
     while True:
         main_controller(bronkhorsts)  # Send the command to the device
         event.set()  # Signal that the logger can proceed
