@@ -172,7 +172,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
         bronkhorst_large.write_bronkhorst(206, dilution_flow)
         bronkhorst_small.write_bronkhorst(206, span_flow)
         if program in ['Nulstilling', 'Afslutning']:
-            time.sleep(0)
+            time.sleep(1)
         else:
             time.sleep(sleep_time)
     
@@ -182,4 +182,4 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
 
 
 if __name__ == '__main__':
-    main_controller([12, 2])
+    main_controller()
