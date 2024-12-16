@@ -1,3 +1,4 @@
+import sys
 import time
 import threading
 from mfc_logger_v1 import main_logger
@@ -33,7 +34,8 @@ def main_controller_event(event, bronkhorsts, sleep_time):
         time.sleep(10)  # Wait for some time before sending the next command
 
 def main():
-    
+    # Define the sleeptime between steps of the chosen program
+    sleep_time = 1440
 
     # Find the Bronkhorst MFC ports
     bh_ports = list(find_bronkhorst_ports().values())  # This is your method to find the ports
@@ -48,7 +50,7 @@ def main():
     log_thread.start()
 
     # Create and start the controller thread, running every 60 seconds
-    control_thread = threading.Thread(target=main_controller_event, args=(event, bronkhorsts))
+    control_thread = threading.Thread(target=main_controller_event, args=(event, bronkhorsts, sleep_time))
     control_thread.daemon = True  # Ensures the controller thread will terminate when the main thread ends
     control_thread.start()
 

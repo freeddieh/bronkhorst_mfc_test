@@ -163,8 +163,9 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
         raise KeyError('Uncompatible number of Bronkhorst MFCs connected. Program can only handle 2 MFCs (span + dilution).')
     bronkhorst_small = bronkhorsts[0]
     bronkhorst_large = bronkhorsts[1]
-    program, set_pts = find_mfc_setpoints()
-
+    program, set_pt1, set_pt2 = find_mfc_setpoints()
+    set_pts = (set_pt1, set_pt2)
+    
     # 206 is the DDE number for setting the specific flow of a Bronkhorst MFC
     for dilution, span in zip(*set_pts):
         dilution_flow = pct_mln_conversion(bronkhorst_large.max_flow, dilution)
