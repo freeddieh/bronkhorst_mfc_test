@@ -43,6 +43,27 @@ def read_bh_flow(bh_mfc: BronkhorstMFC) -> float:
     elif 'mln' not in bh_mfc.readout_unit and 'ln' in bh_mfc.readout_unit:
         bh_mfc.data_unit = 'mLn/min'
         return (float(bh_mfc.read_bronkhorst(205)[205]) * 1000)
+    
+    
+def read_bh_set(bh_mfc: BronkhorstMFC) -> float:
+    """
+    
+    Reads the setpoint of a Bronkhorst MFC
+    
+    :param bh_mfc: BronkhorstMFC object for the MFC to read the setpoint of
+    
+    :return: Float of the current flow in mLn/min
+    
+    """
+
+    # Find the capacity unit of the MFC to standardise output to mLn/min
+    # 205 is the DDE number of the actual flow of a Bronkhorst MFC
+    if 'mln' in bh_mfc.readout_unit:
+        bh_mfc.data_unit = 'mLn/min'
+        return float(bh_mfc.read_bronkhorst(206)[206])
+    elif 'mln' not in bh_mfc.readout_unit and 'ln' in bh_mfc.readout_unit:
+        bh_mfc.data_unit = 'mLn/min'
+        return (float(bh_mfc.read_bronkhorst(206)[206]) * 1000)
 
 
 def data_logging(ser: serial.Serial, 
@@ -77,6 +98,8 @@ def data_logging(ser: serial.Serial,
         bh_data = []
         for mfc in bronkhorst_mfc:
             bh_data.append(read_bh_flow(mfc))
+        for mfc in bronkhorst_mfc:
+            bh_data.append(read_bh_set(mfc))
         get_data = str(ser.readline().decode())
         data = get_data[0:][:-2]
         ### Flow error check ###
@@ -141,7 +164,7 @@ def data_logging(ser: serial.Serial,
         #    continue
 
         # Add a timestamp and write the data to the .csv file
-        data = f'{time.strftime("%Y-%m-%d %H:%M:%S")},{data},{bh_data[0]},{bh_data[1]}'
+        data = f'{time.strftime("%Y-%m-%d %H:%M:%S")},{data},{round(bh_data[0], 2)},{round(bh_data[1], 2)},{round(bh_data[2], 2)},{round(bh_data[3], 2)}'
         file.write(data + '\n')
         file.flush()
 
@@ -177,7 +200,7 @@ def main_logger(bronkhorsts) -> None:
 
     # The header is defined manually
     # Please ensure that the header order and the order of the Bronkhorst MFC list is identical
-    headers = 'Date,Brooks 100SCCM [mLn/min],Brooks 2.5SLM [mLn/min],Bronkhorst 100SCCM [mLn/min], Bronkhorst 2.5SLM[mLn/min]'
+    headers = 'Date,Brooks 100SCCM [mLn/min],Brooks 2.5SLM [mLn/min],Bronkhorst 100SCCM [mLn/min], Bronkhorst 2.5SLM[mLn/min],Bronkhorst 100SCCM Setpunkt [mLn/min], Bronkhorst Setpunkt 2.5SLM[mLn/min]'
     log_name = 'flow'
 
     data_logging(serial_read, headers, log_name, bronkhorsts)

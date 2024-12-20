@@ -193,16 +193,6 @@ def find_bronkhorst_ports() -> dict:
     return mfcs
 
 
-def start_program():
-    """
-    
-    WIP...
-    
-    """
-
-    pass
-
-
 if __name__ =='__main__':
     mfc_port_connections = find_bronkhorst_ports()
     print(mfc_port_connections)

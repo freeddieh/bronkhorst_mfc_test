@@ -128,7 +128,7 @@ def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
         #setv2 = df[setv2_name].iloc[indexes].values
     elif program == 'Nulstilling':
         setp1 = [0]
-        setp2 = [0]
+        setp2 = [0.8]
     elif program == 'Afslutning':
         sys.exit()
 
@@ -178,9 +178,10 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
             time.sleep(sleep_time)
     
     bronkhorst_large.write_bronkhorst(206, 0)
-    bronkhorst_small.write_bronkhorst(206, 0)
+    bronkhorst_small.write_bronkhorst(206, 0.8)
     print('Det valgte program er nu fuldendt.')
 
 
 if __name__ == '__main__':
-    main_controller()
+    bhs = [12, 23]
+    main_controller(bhs)

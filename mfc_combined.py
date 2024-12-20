@@ -35,7 +35,7 @@ def main_controller_event(event, bronkhorsts, sleep_time):
 
 def main():
     # Define the sleeptime between steps of the chosen program
-    sleep_time = 1440
+    sleep_time = 20
 
     # Find the Bronkhorst MFC ports
     bh_ports = list(find_bronkhorst_ports().values())  # This is your method to find the ports
