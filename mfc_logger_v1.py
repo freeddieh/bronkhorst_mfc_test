@@ -12,7 +12,7 @@ from serial.tools import list_ports
 
 # {
 # 8: 'Measure',               # Measurement from 0-32000 (32000 = 100%)
-# 9: 'Setpoint',              # Setpoint from 0-3200
+# 9: 'Setpoint',              # Setpoint from 0-32000
 # 129: 'Capacity Unit',       # Readout unit of the MFC at capacity
 # 205: 'fMeasure',            # Actual flow in capacity unit
 # 206: 'fSetpoint',           # Set flow in capacity unit 
@@ -98,16 +98,6 @@ def data_logging(ser: serial.Serial,
         bh_data = []
         for mfc in bronkhorst_mfc:
             bh_data.append(read_bh_flow(mfc))
-        for mfc in bronkhorst_mfc:
-            bh_data.append(read_bh_set(mfc))
-        get_data = str(ser.readline().decode())
-        data = get_data[0:][:-2]
-        ### Flow error check ###
-
-        #try:
-        #    big_flow = float(data.split(',')[1])
-        #except (IndexError, ValueError):
-        #    pass
 
         # Exit the loop when the day switches, and starts a new loop for the next day
         if today != dt.date.today():
@@ -120,20 +110,6 @@ def data_logging(ser: serial.Serial,
         if line == 0 and os.stat(filename).st_size==0:
             file.write(headers + '\n')
             line += 1
-
-        # Check that the data fetched complete and the data sturcture 
-        # is not corrupted as it is read from the Arduino
-        if ',' not in data or len(data.split(',')) != 2:
-            error_message = f'Error: Data corrupted ({data}).'
-            error_log(error_message, error_log_name)
-            continue
-        try:
-            for value in data.split(','):
-                float(value)
-        except ValueError:
-            error_message = f'Error: Data corrupted ({data}).'
-            error_log(error_message, error_log_name)
-            continue
 
         #######################################################
         ### SECTION FOR MFC ERROR CHECK IMPLEMENT AS NEEDED ###
@@ -164,7 +140,7 @@ def data_logging(ser: serial.Serial,
         #    continue
 
         # Add a timestamp and write the data to the .csv file
-        data = f'{time.strftime("%Y-%m-%d %H:%M:%S")},{data},{round(bh_data[0], 2)},{round(bh_data[1], 2)},{round(bh_data[2], 2)},{round(bh_data[3], 2)}'
+        data = f'{time.strftime("%Y-%m-%d %H:%M:%S")},{bh_data[0]},{bh_data[1]}'
         file.write(data + '\n')
         file.flush()
 
@@ -195,15 +171,13 @@ def main_logger(bronkhorsts) -> None:
     :param bronkhorsts: List of Bronkhorst MFC objects to be controlled.
     
     '''
-    measure_MFC = Arduino() 
-    serial_read = measure_MFC.find_arduino_port()
 
     # The header is defined manually
     # Please ensure that the header order and the order of the Bronkhorst MFC list is identical
-    headers = 'Date,Brooks 100SCCM [mLn/min],Brooks 2.5SLM [mLn/min],Bronkhorst 100SCCM [mLn/min], Bronkhorst 2.5SLM[mLn/min],Bronkhorst 100SCCM Setpunkt [mLn/min], Bronkhorst Setpunkt 2.5SLM[mLn/min]'
+    headers = 'Date,Bronkhorst 100SCCM [mLn/min], Bronkhorst 2.5SLM[mLn/min]'
     log_name = 'flow'
 
-    data_logging(serial_read, headers, log_name, bronkhorsts)
+    data_logging(headers, log_name, bronkhorsts)
 
 
 # Only run the script from this document

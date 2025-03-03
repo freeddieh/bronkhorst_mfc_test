@@ -184,4 +184,5 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
 
 if __name__ == '__main__':
     bhs = [12, 23]
-    main_controller(bhs)
+    bhs = [1, 2]
+    main_controller(bhsbhs)

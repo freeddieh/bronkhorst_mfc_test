@@ -35,28 +35,15 @@ def main_controller_event(event, bronkhorsts, sleep_time):
 
 def main():
     # Define the sleeptime between steps of the chosen program
-    sleep_time = 20
+    sleep_time = 3600
 
     # Find the Bronkhorst MFC ports
     bh_ports = list(find_bronkhorst_ports().values())  # This is your method to find the ports
     bronkhorsts = [BronkhorstMFC(bh_ports[0]), BronkhorstMFC(bh_ports[1])]  # Initialize the objects
     
-    # Create an event that will be used for synchronization
-    event = threading.Event()
+    main_logger(bronkhorsts)
+    main_controller(bronkhorsts, sleep_time)
 
-    # Create and start the logger thread
-    log_thread = threading.Thread(target=main_logger_event, args=(event, bronkhorsts))
-    log_thread.daemon = True  # Ensures the logger thread will terminate when the main thread ends
-    log_thread.start()
-
-    # Create and start the controller thread, running every 60 seconds
-    control_thread = threading.Thread(target=main_controller_event, args=(event, bronkhorsts, sleep_time))
-    control_thread.daemon = True  # Ensures the controller thread will terminate when the main thread ends
-    control_thread.start()
-
-    # Wait for both threads to finish (this is actually non-blocking due to daemon threads)
-    log_thread.join()
-    control_thread.join()
 
 if __name__ == '__main__':
     main()
