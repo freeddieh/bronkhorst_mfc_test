@@ -48,11 +48,11 @@ class ProgrammeSelector:
         self.options = df.columns[-3:]
 
         # Sequential GUI flow
-        self.program, self.cal_type, option_text = self._select_programme()
+        self.program, self.cal_type, self.clean_program = self._select_programme()
         self.program_steps = self._find_program_index()
         self.selected_starttime, self.time_per_step = self._select_time()
         self.set_point_names = cal_types[self.cal_type]
-        self.save_name = f'{self.cal_type}_{option_text}_{self.selected_starttime.strftime("%Y_%m_%d_%H_%M")}'
+        self.save_name = f'{self.cal_type}_{self.clean_program}_{self.selected_starttime.strftime("%Y_%m_%d_%H_%M")}'
     
 
     def _select_programme(self):
@@ -260,13 +260,17 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     csv_header = ['Datetime', 
                   f'Bronkhorst {bronkhorst_small.max_flow}SCCM [mln/min]', 
                   f'Bronkhorst {bronkhorst_large.max_flow}SLM [ln/min]']
+    
     # Create status window
     status_root = tk.Tk()
     status_root.title("Program Status")
     status_root.geometry("1200x1150")
 
     # Progress bar for set_pts
-    ttk.Label(status_root, text="Program Status", font=("Courier", 18), justify="center").pack(pady=5)
+    ttk.Label(status_root, 
+              text=f"Program Status: {programme.cal_type} {programme.clean_program.capitalize()}", 
+              font=("Courier", 18), 
+              justify="center").pack(pady=5)
     step_progress = ttk.Progressbar(status_root, maximum=len(set_pts[0]), length=500)
     step_progress.pack(pady=5)
 
@@ -344,7 +348,8 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
         minutes, seconds = divmod(remainder, 60)
         status_label.config(text=(
             f"Venter på starttidspunkt...\n"
-            f"Starter om {hours:02d}:{minutes:02d}:{seconds:02d}"
+            f"Starter om {hours:02d}:{minutes:02d}:{seconds:02d}\n"
+            f"Valgte starttidspunkt er: {programme.selected_starttime.strftime("%m-%d %H:%M")}"
         ))
         status_root.update()
         time.sleep(1)
