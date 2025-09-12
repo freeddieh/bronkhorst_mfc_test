@@ -349,7 +349,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
         status_label.config(text=(
             f"Venter på starttidspunkt...\n"
             f"Starter om {hours:02d}:{minutes:02d}:{seconds:02d}\n"
-            f"Valgte starttidspunkt er: {programme.selected_starttime.strftime("%m-%d %H:%M")}"
+            f"Valgte starttidspunkt er: {programme.selected_starttime.strftime("%d-%m %H:%M")}"
         ))
         status_root.update()
         time.sleep(1)
@@ -375,6 +375,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
         step_progress['value'] = i + 1
         step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
+                               f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
                                f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
                                f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large}%':<10}\n"
                                f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small}%':<10}\n"
@@ -427,6 +428,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
             time_progress['value'] = t + 1
             step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
+                                   f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
                                    f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
                                    f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large:.2f}%':<10}\n"
                                    f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small:.2f}%':<10}\n"
