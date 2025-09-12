@@ -356,8 +356,8 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
             flow_large = 0.00
             flow_small = 0.00
         else:
-            flow_large = flow_list_large[-1]
-            flow_small = flow_list_small[-1]
+            flow_large = (flow_list_large[-1]/bronkhorst_large.max_flow)*100
+            flow_small = (flow_list_small[-1]/bronkhorst_small.max_flow)*100
         dilution_flow = pct_mln_conversion(bronkhorst_large.max_flow, dilution)
         span_flow = pct_mln_conversion(bronkhorst_small.max_flow, span)
         bronkhorst_large.write_bronkhorst(206, dilution_flow)
@@ -400,8 +400,8 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
             time_list.append(datetime.datetime.now())
             flow_list_small.append(read_bh_flow(bronkhorst_small))
             flow_list_large.append(read_bh_flow(bronkhorst_large)/1000)
-            flow_large = flow_list_large[-1]
-            flow_small = flow_list_small[-1]
+            flow_large = (flow_list_large[-1]/bronkhorst_large.max_flow)*100
+            flow_small = (flow_list_small[-1]/bronkhorst_small.max_flow)*100
 
             # Update plot data
             line1.set_data(time_list, flow_list_small)
