@@ -1,5 +1,6 @@
 import os
 import sys
+import csv
 import glob
 import time
 import openpyxl
@@ -47,10 +48,11 @@ class ProgrammeSelector:
         self.options = df.columns[-3:]
 
         # Sequential GUI flow
-        self.program, self.cal_type = self._select_programme()
+        self.program, self.cal_type, option_text = self._select_programme()
         self.program_steps = self._find_program_index()
         self.selected_starttime, self.time_per_step = self._select_time()
         self.set_point_names = cal_types[self.cal_type]
+        self.save_name = f'{self.cal_type}_{option_text}_{self.selected_starttime.strftime("%Y_%m_%d_%H_%M")}'
     
 
     def _select_programme(self):
@@ -99,7 +101,7 @@ class ProgrammeSelector:
         ttk.Button(root_select, text='Bekræft', command=_confirm_selection).pack(pady=10)
 
         root_select.mainloop()
-        return selected_programme[0], selected_species[0]
+        return selected_programme[0], selected_species[0], option_text.replace(' ', '_').lower()
 
 
     def _find_program_index(self):
@@ -236,7 +238,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     if len(bronkhorsts) != 2:
         raise KeyError('Uncompatible number of Bronkhorst MFCs connected. Program can only handle 2 MFCs (span + dilution).')
     
-    def normalize_flow(mfc):
+    def normalize_flow(mfc: BronkhorstMFC):
         # Convert everything to ln/min for comparison
         if mfc.readout_unit == 'mln/min':
             return mfc.max_flow / 1000  # Convert to ln/min
@@ -255,28 +257,30 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     set_pt1, set_pt2, ppb_conc = find_setpoints(programme)
     set_pts = (set_pt1, set_pt2, ppb_conc)
     step_time = programme.time_per_step*60
-
+    csv_header = ['Datetime', 
+                  f'Bronkhorst {bronkhorst_small.max_flow}SCCM [mln/min]', 
+                  f'Bronkhorst {bronkhorst_large.max_flow}SLM [ln/min]']
     # Create status window
     status_root = tk.Tk()
     status_root.title("Program Status")
-    status_root.geometry("1200x950")
+    status_root.geometry("1200x1150")
 
     # Progress bar for set_pts
-    ttk.Label(status_root, text="Trin status").pack(pady=5)
-    step_progress = ttk.Progressbar(status_root, maximum=len(set_pts[0]), length=300)
+    ttk.Label(status_root, text="Program Status", font=("Courier", 18), justify="center").pack(pady=5)
+    step_progress = ttk.Progressbar(status_root, maximum=len(set_pts[0]), length=500)
     step_progress.pack(pady=5)
 
     # Step progress label
-    step_label = ttk.Label(status_root, text='Starter...')
+    step_label = ttk.Label(status_root, text='Starter...', font=("Courier", 12), justify="left")
     step_label.pack(pady=5)
 
     # Progress bar for time within each step
-    ttk.Label(status_root, text="Tidsstatus").pack(pady=5)
-    time_progress = ttk.Progressbar(status_root, maximum=step_time, length=300)
+    ttk.Label(status_root, text="Status for Nuværende Trin", font=("Courier", 14), justify="center").pack(pady=5)
+    time_progress = ttk.Progressbar(status_root, maximum=step_time, length=500)
     time_progress.pack(pady=5)
 
     # Status label
-    status_label = ttk.Label(status_root, text="Starter...")
+    status_label = ttk.Label(status_root, text="Starter...", font=("Courier", 12), justify="center")
     status_label.pack(pady=10)
 
     # Abort flag
@@ -288,19 +292,31 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     ax2 = ax1.twinx()
 
     # Initial empty plot
-    line1, = ax1.plot([], [], 'g-', label='Small MFC Flow (mln/min)')
-    line2, = ax2.plot([], [], 'b-', label='Large MFC Flow (ln/min)')
+    color1, color2 = 'g', 'b'
+    line1, = ax1.plot([], [], f'{color1}-')
+    line2, = ax2.plot([], [], f'{color2}-')
 
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('Small MFC Flow', color='g')
-    ax2.set_ylabel('Large MFC Flow', color='b')
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    bbox1 = ax1.yaxis.label.get_window_extent()
+    bbox2 = ax2.yaxis.label.get_window_extent()
+    center_y = (bbox1.y0 + bbox1.y1 + bbox2.y0 + bbox2.y1) / 4
+    center_y_fig = center_y / fig.bbox.height
+
+    ax1.set_ylabel('Span\n[mln/min]', color=color1)
+    ax1.tick_params(axis='y', colors=color1)
+    ax1.yaxis.label.set_rotation(0)
+    ax1.yaxis.set_label_coords(-0.1, center_y_fig)
+    ax1.spines['left'].set_color(color1)
+    
+
+    ax2.set_ylabel('Fortynding\n[ln/min]', color=color2)
+    ax2.tick_params(axis='y', colors=color2)
+    ax2.yaxis.label.set_rotation(0)
+    ax2.yaxis.set_label_coords(1.1, center_y_fig*1.1)
+    ax2.spines['right'].set_color(color2)
+    ax2.spines['left'].set_visible(False)
+
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m %H:%M:%S'))
     fig.autofmt_xdate()
-
-    # Add legend
-    lines_1, labels_1 = ax1.get_legend_handles_labels()
-    lines_2, labels_2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
     fig.tight_layout()
 
     # Embed the plot in the tkinter window
@@ -317,6 +333,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
             status_root.update()
             time.sleep(2)
             status_root.destroy()
+
             end_setpoint_frac = end_setpoint_pct / 100
             bronkhorst_large.write_bronkhorst(206, bronkhorst_large.max_flow*end_setpoint_frac)
             bronkhorst_small.write_bronkhorst(206, bronkhorst_small.max_flow*end_setpoint_frac)
@@ -335,6 +352,12 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
     # 206 is the DDE number for setting the specific flow of a Bronkhorst MFC
     for i, (dilution, span, conc) in enumerate(zip(*set_pts)):
+        if not flow_list_large and not flow_list_small:
+            flow_large = 0.00
+            flow_small = 0.00
+        else:
+            flow_large = flow_list_large[-1]
+            flow_small = flow_list_small[-1]
         dilution_flow = pct_mln_conversion(bronkhorst_large.max_flow, dilution)
         span_flow = pct_mln_conversion(bronkhorst_small.max_flow, span)
         bronkhorst_large.write_bronkhorst(206, dilution_flow)
@@ -346,15 +369,28 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
         tot_minutes, tot_seconds = divmod(tot_remainder, 60)
 
         step_progress['value'] = i + 1
-        step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\n"
-                          f"Fortynding {dilution}%, Span {span}%, Koncentration {conc}ppb\n"
-                          f"Tid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}")
+        step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
+                               f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
+                               f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large}%':<10}\n"
+                               f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small}%':<10}\n"
+                               f"{'Koncentration:':<25}{conc:.2f} ppb")
         status_root.update()
 
         for t in range(step_time):
             if abort_flag.get():
                 status_label.config(text="Programmet blev afbrudt under kørsel.")
                 status_root.update()
+
+                # Save csv file
+                csv_rows = zip(time_list, flow_list_small, flow_list_large)
+                with open(f'Flow_logs/{programme.save_name}.csv', 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(csv_header)
+                    writer.writerows(csv_rows)
+
+                # Save plot
+                fig.savefig(f'Figures/{programme.save_name}.pdf')
+
                 time.sleep(2)
                 status_root.destroy()
                 end_setpoint_frac = end_setpoint_pct / 100
@@ -363,7 +399,9 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
                 return
             time_list.append(datetime.datetime.now())
             flow_list_small.append(read_bh_flow(bronkhorst_small))
-            flow_list_large.append(read_bh_flow(bronkhorst_large)*1000)
+            flow_list_large.append(read_bh_flow(bronkhorst_large)/1000)
+            flow_large = flow_list_large[-1]
+            flow_small = flow_list_small[-1]
 
             # Update plot data
             line1.set_data(time_list, flow_list_small)
@@ -384,14 +422,28 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
             time_progress['value'] = t + 1
             step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
-                                   f"Fortynding {dilution}%, Span {span}%\nKoncentration {conc:.2f}ppb")
+                                   f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
+                                   f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large:.2f}%':<10}\n"
+                                   f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small:.2f}%':<10}\n"
+                                   f"{'Koncentration:':<25}{conc:.2f} ppb")
             status_label.config(text=f"Tid tilbage på trin: {step_hours:02d}:{step_minutes:02d}:{step_seconds:02d}")
             status_root.update()
             time.sleep(1)
 
         time_progress['value'] = 0  # Reset time progress for next step
-    status_label.config(text="Program Færdig.")
+    status_label.config(text="Program Færdig.\nGemmer nu Figur og csv fil.")
     status_root.update()
+
+    # Save csv file
+    csv_rows = zip(time_list, flow_list_small, flow_list_large)
+    with open(f'Flow_logs/{programme.save_name}.csv', 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(csv_header)
+        writer.writerows(csv_rows)
+    
+    # Save plot
+    fig.savefig(f'Figures/{programme.save_name}.pdf')
+    
     time.sleep(2)
     status_root.destroy()
 
