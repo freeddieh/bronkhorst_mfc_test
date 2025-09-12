@@ -4,18 +4,17 @@ import openpyxl
 import datetime
 import pandas as pd
 import tkinter as tk
-from airpy import *
+from bronkhorst_mfc_test.airpy import *
 from tkinter.filedialog import askopenfilename
 
 
 def before_after(timestamp) -> bool:
     """
-    
     Tests whether or not an input timestamp lies before or after the current time.
 
     :return: True if timestamp lies after the current time, False if it lies before timestamp
-    
     """
+
     if timestamp >= datetime.datetime.now():
         return True
     else:
@@ -24,13 +23,12 @@ def before_after(timestamp) -> bool:
 
 def find_program_index(file: str, program: str) -> tuple[list]:
     """
-    
     Finds the indices for setpoints for MFCs in a given program
 
     :param file: The file with the setpoints for the program
     :param program: The program to find the setpoint indices for 
-    
     """
+
     workbook = openpyxl.load_workbook(filename=file, data_only=True)
 
     # Select the leftmost sheet
@@ -67,14 +65,12 @@ def find_program_index(file: str, program: str) -> tuple[list]:
 
 def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
     """
-    
     Lets a user select an Excel sheet with instructions for a set of
     calibration programs and lets the user select what specific program
     to run.
     
     :return: A tuple of the chosen program and the setpoints for
              the MFCs in that program
-    
     """
 
     # Names of columns containing the setpoint values in %
@@ -94,6 +90,16 @@ def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
     ark = askopenfilename(parent=root_file, title='Vælg fil med instrukserne')
     root_file.destroy()
 
+    # Construct DataFrame with the loaded sheet an slice for readability
+    df = pd.read_excel(ark)
+    for idx, item in enumerate(df.iloc[:, 0]):
+        try:
+            int(item)
+        except ValueError:
+            slicer = idx
+            break
+    df = df.loc[:slicer-1]
+
     # Create the main window
     options = ['Nulstilling', 'Liniaritet', 'Span', 'Reference Gas Skift', 'Afslutning']
     
@@ -109,16 +115,6 @@ def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
     root_prog.mainloop()
 
     program = ddm.get_selected_value()
-
-    # Construct DataFrame with the loaded sheet an slice for readability
-    df = pd.read_excel(ark)
-    for idx, item in enumerate(df.iloc[:, 0]):
-        try:
-            int(item)
-        except ValueError:
-            slicer = idx
-            break
-    df = df.loc[:slicer-1]
 
     if program not in ['Nulstilling', 'Afslutning']:
         indexes = find_program_index(ark, program)
@@ -137,29 +133,27 @@ def find_mfc_setpoints() -> tuple[str, list[int], list[int]]:
 
 def pct_mln_conversion(mfc_max_flow: float, pct_flow: float) -> float:
     """
-    
     Converts a percentage flow from a MFC into a specific flow in mLn/min or Ln/min.
 
     :param mfc_max_flow: The maximum flow of a given MFC to convert output for.
     :param pct_flow: The percentage setpoint for a MFC to be converted to an specific flow
 
     :return: Specific flow for the MFC in appropriate unit.
-    
     """
+
     return ((pct_flow / 100) * mfc_max_flow)
 
 
 def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) -> None:
     """
-    
     Defines the main function to controll the Bronkhorst MFC's using the worksheet.
 
     :param bronkhorsts: List of Bronkhorst MFC objects to be controlled.
     :param sleep_time: Time the program is supposed to sleep between dilution steps
                        to achieve a stable concentration.
-    
     """
-    if len(bronkhorsts) < 1 or len(bronkhorsts) > 2:
+
+    if len(bronkhorsts) != 2:
         raise KeyError('Uncompatible number of Bronkhorst MFCs connected. Program can only handle 2 MFCs (span + dilution).')
     bronkhorst_small = bronkhorsts[0]
     bronkhorst_large = bronkhorsts[1]
@@ -185,4 +179,4 @@ def main_controller(bronkhorsts: list[BronkhorstMFC], sleep_time: int = 3600) ->
 if __name__ == '__main__':
     bhs = [12, 23]
     bhs = [1, 2]
-    main_controller(bhsbhs)
+    main_controller(bhs)

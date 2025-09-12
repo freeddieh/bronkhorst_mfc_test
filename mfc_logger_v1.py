@@ -3,7 +3,7 @@ import time
 import serial
 import propar as pp
 import datetime as dt
-from airpy import *
+from bronkhorst_mfc_test.airpy import *
 from serial.tools import list_ports
 
 #######################################################################
@@ -26,69 +26,64 @@ from serial.tools import list_ports
 
 def read_bh_flow(bh_mfc: BronkhorstMFC) -> float:
     """
-    
     Reads the setpoint of a Bronkhorst MFC
     
     :param bh_mfc: BronkhorstMFC object for the MFC to read the setpoint of
     
     :return: Float of the current flow in mLn/min
-    
     """
 
     # Find the capacity unit of the MFC to standardise output to mLn/min
     # 205 is the DDE number of the actual flow of a Bronkhorst MFC
+    bh_mfc.data_unit = 'mLn/min'
+
     if 'mln' in bh_mfc.readout_unit:
-        bh_mfc.data_unit = 'mLn/min'
         return float(bh_mfc.read_bronkhorst(205)[205])
+    
     elif 'mln' not in bh_mfc.readout_unit and 'ln' in bh_mfc.readout_unit:
-        bh_mfc.data_unit = 'mLn/min'
         return (float(bh_mfc.read_bronkhorst(205)[205]) * 1000)
     
     
 def read_bh_set(bh_mfc: BronkhorstMFC) -> float:
     """
-    
     Reads the setpoint of a Bronkhorst MFC
     
     :param bh_mfc: BronkhorstMFC object for the MFC to read the setpoint of
     
     :return: Float of the current flow in mLn/min
-    
     """
 
     # Find the capacity unit of the MFC to standardise output to mLn/min
     # 205 is the DDE number of the actual flow of a Bronkhorst MFC
+    bh_mfc.data_unit = 'mLn/min'
+    
     if 'mln' in bh_mfc.readout_unit:
-        bh_mfc.data_unit = 'mLn/min'
         return float(bh_mfc.read_bronkhorst(206)[206])
+    
     elif 'mln' not in bh_mfc.readout_unit and 'ln' in bh_mfc.readout_unit:
-        bh_mfc.data_unit = 'mLn/min'
         return (float(bh_mfc.read_bronkhorst(206)[206]) * 1000)
 
 
-def data_logging(ser: serial.Serial, 
-                 headers: str, 
+def data_logging(headers: str, 
                  log_name: str, 
                  bronkhorst_mfc: list[BronkhorstMFC]|None = None) -> None:
     '''
-    
-    Reads data from a serial print from an Arduino, adds a 
+    Reads data from a serial print from Bronkhorst MFC's, adds a 
     timestamp, and logs the data in 5 second intervals, and 
     stores the data in daily .csv files with customizable names
 
-    :param ser: Serial object for the port of the Arduino
     :param headers: Header of the log to be made
     :param log_name: Identification name of the log
     :param bronkhorst_mfc: List of BronkhorstMFC objects to 
                            read and include in the log
-    
     '''
     
     # Defines all constants for use in the loop
     today = dt.date.today()
-    filename = f'test/logs/{today}_{log_name}.csv'
-    error_log_name = f'test/errorlogs/{today}_data_errorlog.csv'
-    file = open(filename, 'a')
+    filename = f'bronkhorst_mfc_test/test/logs/{today}_{log_name}.csv'
+    error_log_name = f'bronkhorst_mfc_test/test/errorlogs/{today}_data_errorlog.csv'
+    with open(filename, 'w') as file:
+        file.close()
     line = 0
 
     # Use a try except statement to close the serial port and file
@@ -101,14 +96,15 @@ def data_logging(ser: serial.Serial,
 
         # Exit the loop when the day switches, and starts a new loop for the next day
         if today != dt.date.today():
-            file.close()
+            #file.close()
             print(f'Data collection for {today} complete! New file created.')
-            data_logging(ser, headers, log_name)
+            data_logging(headers, log_name, bronkhorst_mfc)
             break
         
         # If at the start of the document write headers
         if line == 0 and os.stat(filename).st_size==0:
-            file.write(headers + '\n')
+            with open(filename, 'w') as file:
+                file.write(headers + '\n')
             line += 1
 
         #######################################################
@@ -141,21 +137,21 @@ def data_logging(ser: serial.Serial,
 
         # Add a timestamp and write the data to the .csv file
         data = f'{time.strftime("%Y-%m-%d %H:%M:%S")},{bh_data[0]},{bh_data[1]}'
-        file.write(data + '\n')
-        file.flush()
+        with open(filename, 'a') as file:
+            file.write(data + '\n')
+            file.flush()
 
         time.sleep(5)
 
 
 def error_log(error: str, log_name: str) -> None:
     """
-    
     Error log writer for data logging.
 
     :param error: Error message for the specific error.
     :param log_name: Name of the error log file
-    
     """
+
     # Function for logging errors in the data when they occur
     error_log = open(log_name, 'a')
     error = f'{time.strftime("%Y-%m-%d %H:%M:%S")}, {error}'
@@ -165,11 +161,9 @@ def error_log(error: str, log_name: str) -> None:
 
 def main_logger(bronkhorsts) -> None:
     '''
-    
     Function for execution of the data logger.
 
     :param bronkhorsts: List of Bronkhorst MFC objects to be controlled.
-    
     '''
 
     # The header is defined manually
