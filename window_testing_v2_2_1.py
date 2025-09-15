@@ -3,6 +3,7 @@ import sys
 import csv
 import glob
 import time
+import random
 import openpyxl
 import datetime
 import numpy as np
@@ -45,10 +46,11 @@ class ProgrammeSelector:
         except Exception as e:
             print(f'Error reading Excel file: {e}')
             return
-        self.options = df.columns[-3:]
+        self.options = list(df.columns[-3:])
+        self.options.append('Nul')
 
         # Sequential GUI flow
-        self.program, self.cal_type, self.clean_program = self._select_programme()
+        self.program, self.cal_type, self.clean_program, self.shuffle_steps = self._select_programme()
         self.program_steps = self._find_program_index()
         self.selected_starttime, self.time_per_step = self._select_time()
         self.set_point_names = cal_types[self.cal_type]
@@ -78,17 +80,12 @@ class ProgrammeSelector:
         main_frame = ttk.Frame(root_select)
         main_frame.pack(expand=True, fill='both', padx=10, pady=10)
 
-        # Programme selection
-        programme_frame = ttk.LabelFrame(main_frame, text='Vælg Program')
-        programme_frame.pack(side='right', expand=True, fill='both', padx=10)
-        programme_var = tk.StringVar()
+        shuffle_order = tk.BooleanVar()  
+        shuffle_frame = ttk.LabelFrame(main_frame, text='Rækkefølge')
+        shuffle_frame.pack(side='top', fill='x', pady=(0, 10))
 
-        for option in self.options:
-            if 'skift' in option.lower():
-                option_text = 'Reference Gas Skift'
-            else:
-                option_text = option
-            ttk.Radiobutton(programme_frame, text=option_text, variable=programme_var, value=option).pack(anchor='w', pady=5)
+        ttk.Radiobutton(shuffle_frame, text='Tilfældig', variable=shuffle_order, value=True).pack(side='left', padx=10, pady=5)
+        ttk.Radiobutton(shuffle_frame, text='Ikke Tilfældig', variable=shuffle_order, value=False).pack(side='left', padx=10, pady=5)
 
         # Species selection
         species_frame = ttk.LabelFrame(main_frame, text='Vælg Type')
@@ -97,14 +94,31 @@ class ProgrammeSelector:
         ttk.Radiobutton(species_frame, text='SO₂', variable=species_var, value='SO2').pack(anchor='w', pady=5)
         ttk.Radiobutton(species_frame, text='NOx', variable=species_var, value='NOx').pack(anchor='w', pady=5)
 
+        # Programme selection
+        programme_frame = ttk.LabelFrame(main_frame, text='Vælg Program')
+        programme_frame.pack(side='right', expand=True, fill='both', padx=10)
+        programme_var = tk.StringVar()
+        
+        clean_text_dict = {}
+        for option in self.options:
+            if 'skift' in option.lower():
+                option_text = 'Reference Gas Skift'
+            else:
+                option_text = option
+            clean_text_dict[option] = option_text
+            ttk.Radiobutton(programme_frame, text=option_text, variable=programme_var, value=option).pack(anchor='w', pady=5)
+
         # Confirm button
         ttk.Button(root_select, text='Bekræft', command=_confirm_selection).pack(pady=10)
 
         root_select.mainloop()
-        return selected_programme[0], selected_species[0], option_text.replace(' ', '_').lower()
+        return selected_programme[0], selected_species[0], clean_text_dict[selected_programme[0]].replace(' ', '_').lower(), shuffle_order
 
 
     def _find_program_index(self):
+        if 'Nul' in self.program:
+            return None
+        
         workbook = openpyxl.load_workbook(filename=self.ark, data_only=True)
         sheet = workbook.worksheets[0]
         data = []
@@ -201,10 +215,22 @@ class ProgrammeSelector:
             else:
                 start_dt = datetime.datetime.now()
 
-            steps = len(getattr(self, 'program_steps', []))
-            duration = datetime.timedelta(minutes=step_time_var.get() * steps)
-            expected_dt = start_dt + duration
-            expected_label.config(text=f'Forventet færdig: {expected_dt.strftime('%Y-%m-%d %H:%M')}')
+            steps = getattr(self, 'program_steps', [])
+            if steps is not None:
+                n_steps = len(steps) + 2 # Accounts for the Zero befor and after measuring
+            else:
+                n_steps = 1
+            try:
+                step_time_val = step_time_var.get()
+                if isinstance(step_time_val, int):
+                    duration = datetime.timedelta(minutes=step_time_val * n_steps)
+                    expected_dt = start_dt + duration
+                    expected_label.config(text=f'Forventet færdig: {expected_dt.strftime("%Y-%m-%d %H:%M")}')
+                else:
+                    expected_label.config(text='Forventet færdig: N/A')
+            except tk.TclError:
+                expected_label.config(text='Forventet færdig: N/A')
+
 
         # Bind updates
         step_time_var.trace_add('write', _update_expected_time)
@@ -224,9 +250,9 @@ class ProgrammeSelector:
         return selected_datetime[0], time_per_step
 
 
-def main_controller(bronkhorsts: list[BronkhorstMFC], 
+def flow_controller(bronkhorsts: list[BronkhorstMFC], 
                     programme: ProgrammeSelector, 
-                    end_setpoint_pct: int) -> None:
+                    end_setpoint_frac: int) -> None:
     '''
     Defines the main function to controll the Bronkhorst MFC's using the worksheet.
 
@@ -249,13 +275,25 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     time_list = []
     flow_list_small = []
     flow_list_large = []
-
     # Sort the list by normalized flow
     mfcs_sorted = sorted(bronkhorsts, key=normalize_flow)
     bronkhorst_small = mfcs_sorted[0]
     bronkhorst_large = mfcs_sorted[1]
-    set_pt1, set_pt2, ppb_conc = find_setpoints(programme)
-    set_pts = (set_pt1, set_pt2, ppb_conc)
+    bh_small_idle_point = bronkhorst_small.max_flow*end_setpoint_frac[0]
+    bh_large_idle_point = bronkhorst_large.max_flow*end_setpoint_frac[1]
+    set_large, set_small, ppb_conc = find_setpoints(programme)
+
+    set_pts = (set_large, set_small, ppb_conc)
+    set_pt_list = [i for i in zip(*set_pts)]
+    if programme.shuffle_steps:
+        final_point_list = random.sample(set_pt_list, len(set_pt_list))
+    else:
+        final_point_list = set_pt_list
+
+    if len(final_point_list) > 1:
+        final_point_list.append((90, 0, 0))
+        final_point_list.insert(0, (90, 0, 0))
+
     step_time = programme.time_per_step*60
     csv_header = ['Datetime', 
                   f'Bronkhorst {bronkhorst_small.max_flow}SCCM [mln/min]', 
@@ -268,7 +306,7 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
     # Progress bar for set_pts
     ttk.Label(status_root, 
-              text=f"Program Status: {programme.cal_type} {programme.clean_program.capitalize()}", 
+              text=f"Program: {programme.cal_type} {programme.clean_program.capitalize()}", 
               font=("Courier", 18), 
               justify="center").pack(pady=5)
     step_progress = ttk.Progressbar(status_root, maximum=len(set_pts[0]), length=500)
@@ -337,10 +375,9 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
             status_root.update()
             time.sleep(2)
             status_root.destroy()
-
-            end_setpoint_frac = end_setpoint_pct / 100
-            bronkhorst_large.write_bronkhorst(206, bronkhorst_large.max_flow*end_setpoint_frac)
-            bronkhorst_small.write_bronkhorst(206, bronkhorst_small.max_flow*end_setpoint_frac)
+            bronkhorst_small.write_bronkhorst(206, bh_small_idle_point)
+            bronkhorst_large.write_bronkhorst(206, bh_large_idle_point)
+        
             return  # Exit the function cleanl
 
         remaining = start_time - datetime.datetime.now()
@@ -354,12 +391,11 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
         status_root.update()
         time.sleep(1)
 
-
     # 206 is the DDE number for setting the specific flow of a Bronkhorst MFC
-    for i, (dilution, span, conc) in enumerate(zip(*set_pts)):
+    for i, (dilution, span, conc) in enumerate(final_point_list):
         if not flow_list_large and not flow_list_small:
-            flow_large = 0.00
-            flow_small = 0.00
+            flow_large = read_bh_flow(bronkhorst_small)
+            flow_small = read_bh_flow(bronkhorst_large)/1000
         else:
             flow_large = (flow_list_large[-1]/bronkhorst_large.max_flow)*100
             flow_small = (flow_list_small[-1]/bronkhorst_small.max_flow)*100
@@ -376,10 +412,10 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
         step_progress['value'] = i + 1
         step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
                                f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
-                               f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
-                               f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large}%':<10}\n"
-                               f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small}%':<10}\n"
-                               f"{'Koncentration:':<25}{conc:.2f} ppb")
+                               f"\n{'':<15}{'Indstillet':<15}{'Målt':<10}\n"
+                               f"{'Fortynding:':<15}{f'{dilution}%':<15}{f'{flow_large}%':<10}\n"
+                               f"{'Span:':<15}{f'{span}%':<15}{f'{flow_small}%':<10}\n"
+                               f"{'Koncentration:':<15}{conc:.2f} ppb")
         status_root.update()
 
         for t in range(step_time):
@@ -399,9 +435,8 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
 
                 time.sleep(2)
                 status_root.destroy()
-                end_setpoint_frac = end_setpoint_pct / 100
-                bronkhorst_large.write_bronkhorst(206, bronkhorst_large.max_flow*end_setpoint_frac)
-                bronkhorst_small.write_bronkhorst(206, bronkhorst_small.max_flow*end_setpoint_frac)
+                bronkhorst_large.write_bronkhorst(206, bh_small_idle_point)
+                bronkhorst_small.write_bronkhorst(206, bh_large_idle_point)
                 return
             time_list.append(datetime.datetime.now())
             flow_list_small.append(read_bh_flow(bronkhorst_small))
@@ -429,10 +464,10 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
             time_progress['value'] = t + 1
             step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
                                    f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
-                                   f"\n{'':<25}{'Indstillet':<15}{'Målt':<10}\n"
-                                   f"{'Fortynding:':<25}{f'{dilution}%':<15}{f'{flow_large:.2f}%':<10}\n"
-                                   f"{'Span:':<25}{f'{span}%':<15}{f'{flow_small:.2f}%':<10}\n"
-                                   f"{'Koncentration:':<25}{conc:.2f} ppb")
+                                   f"\n{'':<15}{'Indstillet':<15}{'Målt':<10}\n"
+                                   f"{'Fortynding:':<15}{f'{dilution}%':<15}{f'{flow_large:.2f}%':<10}\n"
+                                   f"{'Span:':<15}{f'{span}%':<15}{f'{flow_small:.2f}%':<10}\n"
+                                   f"{'Koncentration:':<15}{conc:.2f} ppb")
             status_label.config(text=f"Tid tilbage på trin: {step_hours:02d}:{step_minutes:02d}:{step_seconds:02d}")
             status_root.update()
             time.sleep(1)
@@ -454,24 +489,29 @@ def main_controller(bronkhorsts: list[BronkhorstMFC],
     time.sleep(2)
     status_root.destroy()
 
-    end_setpoint_frac = end_setpoint_pct / 100
-    bronkhorst_large.write_bronkhorst(206, bronkhorst_large.max_flow*end_setpoint_frac)
-    bronkhorst_small.write_bronkhorst(206, bronkhorst_small.max_flow*end_setpoint_frac)
+    bronkhorst_small.write_bronkhorst(206, bh_small_idle_point)
+    bronkhorst_large.write_bronkhorst(206, bh_large_idle_point)
     print('Finished all')
 
 
 def find_setpoints(programme: ProgrammeSelector):
     df = pd.read_excel(programme.ark)
-    indexes = find_program_index(programme.ark, programme.program)
-    setpoint1_name, setpoint2_name, ppb_names = programme.set_point_names
-    setp1 = df[setpoint1_name].iloc[indexes].values
-    setp2 = df[setpoint2_name].iloc[indexes].values
-    conc_vals = df[ppb_names].iloc[indexes].values
-    return setp1, setp2, conc_vals
+    if programme.program == 'Nul':
+        set_large = [90]
+        set_small = [0]
+        conc_vals = [0]
+        return set_large, set_small, conc_vals
+    else:
+        indexes = find_program_index(programme.ark, programme.program)
+        setpoint1_name, setpoint2_name, ppb_names = programme.set_point_names
+        set_large = df[setpoint1_name].iloc[indexes].values
+        set_small = df[setpoint2_name].iloc[indexes].values
+        conc_vals = df[ppb_names].iloc[indexes].values
+        return set_large, set_small, conc_vals
 
 
 if __name__ == '__main__':
-    end_setpoints_pct = 1 # % of max flow
+    end_setpoints_frac = [0.01, 0.6] # % of max flow
 
     # Find and connect the Bronkhorst MFC's
     bh_ports = list(find_bronkhorst_ports().values())
@@ -479,4 +519,4 @@ if __name__ == '__main__':
 
     # Find and load programme variables
     programme_variables = ProgrammeSelector()
-    main_controller(bronkhorsts, programme_variables, end_setpoints_pct)
+    flow_controller(bronkhorsts, programme_variables, end_setpoints_frac)
