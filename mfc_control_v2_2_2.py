@@ -309,7 +309,7 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
               text=f"Program: {programme.cal_type} {programme.clean_program.capitalize()}", 
               font=("Courier", 18), 
               justify="center").pack(pady=5)
-    step_progress = ttk.Progressbar(status_root, maximum=len(set_pts[0]), length=500)
+    step_progress = ttk.Progressbar(status_root, maximum=len(final_point_list), length=500)
     step_progress.pack(pady=5)
 
     # Step progress label
@@ -405,12 +405,12 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
         bronkhorst_small.write_bronkhorst(206, span_flow)
 
         # Update step progress
-        tot_time_left = datetime.timedelta(seconds=(len(set_pts[0])-i*step_time))
+        tot_time_left = datetime.timedelta(seconds=(len(final_point_list)-i*step_time))
         tot_hours, tot_remainder = divmod(int(tot_time_left.total_seconds()), 3600)
         tot_minutes, tot_seconds = divmod(tot_remainder, 60)
 
         step_progress['value'] = i + 1
-        step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
+        step_label.config(text=f"Trin {i+1}/{len(final_point_list)}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
                                f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
                                f"\n{'':<15}{'Indstillet':<15}{'Målt':<10}\n"
                                f"{'Fortynding:':<15}{f'{dilution}%':<15}{f'{flow_large}%':<10}\n"
@@ -422,6 +422,10 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
             if abort_flag.get():
                 status_label.config(text="Programmet blev afbrudt under kørsel.")
                 status_root.update()
+
+                # Ensure folders exist
+                os.makedirs('Flow_logs', exist_ok=True)
+                os.makedirs('Figures', exist_ok=True)
 
                 # Save csv file
                 csv_rows = zip(time_list, flow_list_small, flow_list_large)
@@ -453,7 +457,7 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
             ax2.autoscale_view()
             canvas.draw()
 
-            tot_time_left = datetime.timedelta(seconds=(len(set_pts[0])-(i+1))*step_time+step_time-(t+1))
+            tot_time_left = datetime.timedelta(seconds=(len(final_point_list)-(i+1))*step_time+step_time-(t+1))
             tot_hours, tot_remainder = divmod(int(tot_time_left.total_seconds()), 3600)
             tot_minutes, tot_seconds = divmod(tot_remainder, 60)
 
@@ -462,7 +466,7 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
             step_minutes, step_seconds = divmod(step_remainder, 60)
 
             time_progress['value'] = t + 1
-            step_label.config(text=f"Trin {i+1}/{len(set_pts[0])}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
+            step_label.config(text=f"Trin {i+1}/{len(final_point_list)}\tTid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n"
                                    f"Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n"
                                    f"\n{'':<15}{'Indstillet':<15}{'Målt':<10}\n"
                                    f"{'Fortynding:':<15}{f'{dilution}%':<15}{f'{flow_large:.2f}%':<10}\n"
@@ -475,6 +479,10 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
         time_progress['value'] = 0  # Reset time progress for next step
     status_label.config(text="Program Færdig.\nGemmer nu Figur og csv fil.")
     status_root.update()
+    
+    # Ensure folders exist
+    os.makedirs('Flow_logs', exist_ok=True)
+    os.makedirs('Figures', exist_ok=True)
 
     # Save csv file
     csv_rows = zip(time_list, flow_list_small, flow_list_large)
@@ -482,9 +490,10 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
         writer = csv.writer(f)
         writer.writerow(csv_header)
         writer.writerows(csv_rows)
-    
+
     # Save plot
     fig.savefig(f'Figures/{programme.save_name}.pdf')
+
     
     time.sleep(2)
     status_root.destroy()
