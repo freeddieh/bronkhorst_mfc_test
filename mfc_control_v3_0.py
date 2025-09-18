@@ -323,7 +323,7 @@ def initiate_plot(plot_frame,
     ax2.spines['right'].set_color(color2)
     ax2.spines['left'].set_visible(False)
 
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m %H:%M:%S'))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     fig.autofmt_xdate()
     fig.tight_layout()
 
@@ -587,8 +587,8 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
         step_label.config(text=f'Trin{i+1}/{len(final_point_list)}\t  Tid tilbage total: {tot_hours:02d}:{tot_minutes:02d}:{tot_seconds:02d}\n'
                                f'Forventet færdig: {(datetime.datetime.now()+tot_time_left).strftime("%d-%m %H:%M")}\n'
                                f'\n{"":<17}{"Indstillet":<7}{"":<15}{"Målt":<10}\n'
-                               f'{"Fortynding:":<15}{f"{dilution}%":<5}{f"{dilution_flow} L/min":<20}{f"{dilution}%":<5}{f"{dilution_flow} L/min":<10}\n'
-                               f'{"Span:":<15}{f"{span}%":<5}{f"{span_flow} mL/min":<20}{f"{span}%":<5}{f"{span_flow} mL/min":<10}\n'
+                               f'{"Fortynding:":<15}{f"{dilution}%":<5}{f"{dilution_flow:.2f} L/min":<20}{f"{flow_large}%":<5}{f"{flow_list_large[-1]:.2f} L/min":<10}\n'
+                               f'{"Span:":<15}{f"{span}%":<5}{f"{span_flow:.2f} mL/min":<20}{f"{flow_small}%":<5}{f"{flow_list_small[-1]:.2f} mL/min":<10}\n'
                                f'{"Koncentration:":<15}{conc:.2f} ppb')
         status_root.update()
 
