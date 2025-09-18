@@ -34,12 +34,14 @@ class BronkhorstMFC:
         connected Bronkhorst MFC
         
         """
+        pretty_units = {'mln/min': 'mL/min', 'ln/min': 'L/min'}
 
         self.port = port
         self.communication = pp.instrument(self.port)
         self.max_flow = float(self.communication.readParameter(21))
         self.readout_unit = self.communication.readParameter(129).strip()
         self.data_unit = None
+        self.pretty_unit = pretty_units[self.readout_unit]
 
     def read_bronkhorst(self, dde_numbers: list[int]) -> dict:
         """
