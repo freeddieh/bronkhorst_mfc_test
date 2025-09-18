@@ -559,7 +559,8 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
     submit_button = ttk.Button(input_frame, text='Submit', command=on_submit)
     submit_button.pack(side='top')
 
-    start_waiter(start_time, abort_flag, status_root, status_label, programme, end_setpoint_frac)
+    start_waiter(start_time, abort_flag, status_root, status_label, 
+                 programme, end_setpoint_frac, bronkhorst_small, bronkhorst_large)
 
     # 206 is the DDE number for setting the specific flow of a Bronkhorst MFC
     for i, (dilution, dilution_flow, span, span_flow, conc) in enumerate(final_point_list):
