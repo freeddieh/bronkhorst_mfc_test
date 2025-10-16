@@ -616,7 +616,7 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
 
     # Submit button
     def on_submit():
-        text = f'{datetime.datetime.now().strftime('%d/%m-%Y %H:%M:%S')} {input_entry.get()}'
+        text = f'{datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')} {input_entry.get()}'
         append_to_file(text)
         input_entry.delete(0, tk.END) # Clear the entry after submission
         load_file_contents(text_display, comment_file_name)
@@ -687,7 +687,7 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
             status_root.update()
 
             for t in range(step_time):            
-                time_list.append(datetime.datetime.now().strftime("%d/%m %H:%M:%S"))
+                time_list.append(datetime.datetime.now())
                 meas_flow_small = read_bh_flow(bronkhorst_small)
                 meas_flow_large = read_bh_flow(bronkhorst_large)/1000
                 flow_small = (meas_flow_small/bronkhorst_small.max_flow)*100
@@ -735,7 +735,8 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
         os.makedirs(f'{programme.save_name}', exist_ok=True)
 
         # Save csv file
-        csv_rows = zip(time_list, flow_list_small, flow_list_large)
+        save_time_list = [ts.strftime("%d/%m/%Y %H:%M:%S") for ts in time_list]
+        csv_rows = zip(save_time_list, flow_list_small, flow_list_large)
         with open(f'{programme.save_name}/flow_plot{programme.selected_starttime.strftime("%d_%m_%H_%M")}.csv', 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(csv_header)
