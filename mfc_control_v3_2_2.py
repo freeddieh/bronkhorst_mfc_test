@@ -335,8 +335,12 @@ def on_programme_complete(status_root,
     done_button.pack(pady=5)
     bh_small_idle_point = bronkhorst_small.max_flow*end_setpoint_frac[0]
     bh_large_idle_point = bronkhorst_large.max_flow*end_setpoint_frac[1]
-    status_root.protocol("WM_DELETE_WINDOW", status_root.destroy)
+    def on_close():
+        status_root.destroy()
+        status_root.after(10, sys.exit())
     
+    status_root.protocol('WM_DELETE_WINDOW', on_close)
+
     def update_loop():
         # Loop
         meas_flow_small = read_bh_flow(bronkhorst_small)
@@ -619,10 +623,10 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
 
     # Handle early window close    
     status_root.protocol("WM_DELETE_WINDOW", lambda: early_cancel_program(
-        status_root,
-        status_label,
-        bronkhorst_small, 
-        bronkhorst_large))
+    status_root,
+    status_label,
+    bronkhorst_small, 
+    bronkhorst_large))
 
     submit_button = ttk.Button(input_frame, text='Submit', command=on_submit)
     submit_button.pack(side='top')
@@ -631,11 +635,10 @@ def flow_controller(bronkhorsts: list[BronkhorstMFC],
 
         # Handle program window close
         status_root.protocol("WM_DELETE_WINDOW", lambda: cancel_program(
-            status_root, status_label, programme, time_list,
-            flow_list_small, flow_list_large, csv_header,
-            fig, bronkhorst_small, bronkhorst_large,
-            append_to_file, setting_text
-        ))
+        status_root, status_label, programme, time_list,
+        flow_list_small, flow_list_large, csv_header,
+        fig, bronkhorst_small, bronkhorst_large,
+        append_to_file, setting_text))
 
         abort_button.config(command=lambda: cancel_program(
             status_root, status_label, programme, time_list,
