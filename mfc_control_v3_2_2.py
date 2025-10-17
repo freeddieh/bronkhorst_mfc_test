@@ -4,6 +4,7 @@ import csv
 import glob
 import time
 import random
+import chardet
 import openpyxl
 import datetime
 import numpy as np
@@ -357,12 +358,15 @@ def on_programme_complete(status_root,
 
 def load_file_contents(text_display, comment_file_name):
     try:
-        with open(comment_file_name, 'r', encoding='utf-8') as f:
-            contents = f.read()
-            text_display.configure(state='normal')
-            text_display.delete('1.0', tk.END)
-            text_display.insert(tk.END, contents)
-            text_display.configure(state='disabled')
+        with open(comment_file_name, 'rb') as f:
+            raw_data = f.read()
+            encoding = chardet.detect(raw_data)['encoding']
+        contents = raw_data.decode(encoding)
+
+        text_display.configure(state='normal')
+        text_display.delete('1.0', tk.END)
+        text_display.insert(tk.END, contents)
+        text_display.configure(state='disabled')
     except Exception as e:
         print(f"Error loading file: {e}")
 
@@ -490,7 +494,7 @@ def cancel_program(status_root,
 
     # Save csv file
     csv_rows = zip(time_list, flow_list_small, flow_list_large)
-    with open(f'Flow_logs/{programme.save_name}.csv', 'w', newline='', encoding='utf-8') as f:
+    with open(f'{programme.save_name}/flow_plot{programme.selected_starttime.strftime("%d_%m_%H_%M")}.csv', 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(csv_header)
         writer.writerows(csv_rows)
